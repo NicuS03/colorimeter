@@ -82,8 +82,7 @@ jobs:
     - name: Create debian package
       run: |
         docker exec ${{env.CONTAINER_BASE_NAME}}-${{matrix.architecture}} sh -c "chmod +x .github/scripts/create_debian.sh"
-        docker exec ${{env.CONTAINER_BASE_NAME}}-${{matrix.architecture}} sh -c ".github/scripts/create_debian.sh ${{env.APP_NAME}}_${{needs.identify_version.outputs.app-version}}.orig.tar.gz \
-          ${{needs.identify_version.outputs.app-version}}-1 ${{matrix.architecture}}"
+        docker exec ${{env.CONTAINER_BASE_NAME}}-${{matrix.architecture}} sh -c ".github/scripts/create_debian.sh ${{needs.identify_version.outputs.app-version}} ${{matrix.architecture}}"
 
     - name: Install application
       env:
