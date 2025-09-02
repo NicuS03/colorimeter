@@ -2,7 +2,7 @@ name: Build and Deploy Colorimeter
 
 env:
   APP_NAME: colorimeter
-  BIN_LOCATION: /usr/bin
+  UBUNTU_DEPLOY_RUNNER: ubuntu-22.04
   
 
 on:
@@ -33,14 +33,15 @@ jobs:
         if [[ "${{github.ref_type}}" == "tag" ]]; then
             app_version=${{github.ref_name}}
         else
-          git fetch --tags
-          latest_tag=$(curl -H "Authorization: Bearer ${{secrets.TOKEN_GITHUB}}" "https://api.github.com/repos/${{github.repository}}/releases/latest" | jq -r .tag_name)
+          latest_tag=$(curl "https://api.github.com/repos/${{github.repository}}/releases/latest" | jq -r .tag_name)
           app_version=$latest_tag+${{ github.sha }}
         fi
         echo "Version to check: "$app_version
-        if [[ $app_version =~ v([0-9]+\.[0-9]+(\.[0-9]+)?([-+][a-z0-9]+)?)$ ]]; then
-          echo "Version to use: ${BASH_REMATCH[1]}"
-          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+        regex='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$'
+        # Regex to match semantic versioning (from semver.org)
+        if [[ $app_version =~ $regex ]]; then 
+          echo "Version to use: ${BASH_REMATCH[0]}"
+          echo "version=${BASH_REMATCH[0]}" >> "$GITHUB_OUTPUT"
         else
           echo "Invalid tag format, will be used 0.0.1+${{ github.sha }}"
           echo "version=0.0.1+${{ github.sha }}" >> "$GITHUB_OUTPUT"
@@ -82,8 +83,7 @@ jobs:
     - name: Create debian package
       run: |
         docker exec ${{env.CONTAINER_BASE_NAME}}-${{matrix.architecture}} sh -c "chmod +x .github/scripts/create_debian.sh"
-        docker exec ${{env.CONTAINER_BASE_NAME}}-${{matrix.architecture}} sh -c ".github/scripts/create_debian.sh ${{env.APP_NAME}}_${{needs.identify_version.outputs.app-version}}.orig.tar.gz \
-          ${{needs.identify_version.outputs.app-version}}-1 ${{matrix.architecture}}"
+        docker exec ${{env.CONTAINER_BASE_NAME}}-${{matrix.architecture}} sh -c ".github/scripts/create_debian.sh ${{needs.identify_version.outputs.app-version}} ${{matrix.architecture}}"
 
     - name: Install application
       env:
@@ -109,7 +109,7 @@ jobs:
         path: ${{env.APP_NAME}}_${{needs.identify_version.outputs.app-version}}-1_${{matrix.architecture}}.deb
         if-no-files-found: error
   build_and_deploy_for_ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ${{env.UBUNTU_DEPLOY_RUNNER}}
     needs: identify_version
     env:
       architecture: amd64
@@ -125,8 +125,7 @@ jobs:
     - name: Create .deb package
       run: | 
         chmod +x .github/scripts/create_debian.sh
-        .github/scripts/create_debian.sh ${{env.APP_NAME}}_${{needs.identify_version.outputs.app-version}}.orig.tar.gz \
-          ${{needs.identify_version.outputs.app-version}}-1 ${{env.architecture}}
+        .github/scripts/create_debian.sh ${{needs.identify_version.outputs.app-version}} ${{env.architecture}}
 
     - name: Install application
       env:
