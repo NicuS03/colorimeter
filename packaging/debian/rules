@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_build:
+	$(MAKE) -- PREFIX=/usr
+	dh_auto_build
+
+override_dh_auto_install:
+	dh_auto_install -- PREFIX=/usr DEB_BUILD=1
